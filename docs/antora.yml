@@ -1,0 +1,5 @@
+name: quarkus-logging-dev
+title: Quarkus Logging Dev
+version: dev
+nav:
+  - modules/ROOT/nav.adoc
