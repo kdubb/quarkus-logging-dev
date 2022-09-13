@@ -37,9 +37,9 @@ public class LoggingDevTest {
         var formatted = new DevFormatter("localhost", 8080, true).format(record);
         System.out.println(formatted);
 
-        var expected = "12:34:56 GET    /api/v1/user/teams/3UZATo6sz3juEcN9pE3LX0\n" +
-                "                |200 OK HTTP/1.1| <auth0|5cec35fb94f02a0e160b5fad>\n" +
-                "                [io.qua.htt.access-log] (Quarkus Main) <trace:51793732132590713,span:1497135987135289>\n\n";
+        var expected = "12:34:56 HTTP  GET /api/v1/user/teams/3UZATo6sz3juEcN9pE3LX0\n" +
+                "               |200 OK HTTP/1.1| <auth0|5cec35fb94f02a0e160b5fad>\n" +
+                "               [io.qua.htt.access-log] (Quarkus Main) <trace:51793732132590713,span:1497135987135289>\n\n";
         assertThat(removeEscapes(formatted), equalTo(expected));
     }
 
@@ -55,17 +55,17 @@ public class LoggingDevTest {
         var formatted = new DevFormatter("localhost", 8080, true).format(record);
         System.out.println(formatted);
 
-        var expected = "12:34:56 ERROR  A serious error occurred\n" +
-                "                [io.quarkus] (Quarkus Main) <trace:51793732132590713,span:1497135987135289>\n" +
-                "                ↪ Something bad happened. Here are more details\n" +
-                "                  RuntimeException TestExceptions.getEx1(TestExceptions.java:9)\n" +
-                "                  ↪ Could not read from file\n" +
-                "                      more details on a newline.\n" +
-                "                    IOException TestExceptions.getEx2(TestExceptions.java:13)\n" +
-                "                    ↪ File not found\n" +
-                "                        more details on a newline.\n" +
-                "                      FileNotFoundException TestExceptions.getEx3(TestExceptions.java:17)\n" +
-                "                http://localhost:8080/q/exceptions/1323516898\n\n";
+        var expected = "12:34:56 ERROR A serious error occurred\n" +
+                "               [io.quarkus] (Quarkus Main) <trace:51793732132590713,span:1497135987135289>\n" +
+                "               ↪ Something bad happened. Here are more details\n" +
+                "                 RuntimeException TestExceptions.getEx1(TestExceptions.java:9)\n" +
+                "                 ↪ Could not read from file\n" +
+                "                     more details on a newline.\n" +
+                "                   IOException TestExceptions.getEx2(TestExceptions.java:13)\n" +
+                "                   ↪ File not found\n" +
+                "                       more details on a newline.\n" +
+                "                     FileNotFoundException TestExceptions.getEx3(TestExceptions.java:17)\n" +
+                "               http://localhost:8080/q/exceptions/1323516898\n\n";
         assertThat(removeEscapes(formatted), equalTo(expected));
     }
 
@@ -79,8 +79,8 @@ public class LoggingDevTest {
         var formatted = new DevFormatter("localhost", 8080, false).format(record);
         System.out.println(formatted);
 
-        var expected = "12:34:56 ERROR  A serious error occurred\n" +
-                "                [io.quarkus] (Quarkus Main)\n\n";
+        var expected = "12:34:56 ERROR A serious error occurred\n" +
+                "               [io.quarkus] (Quarkus Main)\n\n";
         assertThat(removeEscapes(formatted), equalTo(expected));
     }
 
@@ -97,15 +97,15 @@ public class LoggingDevTest {
         var formatted = new DevFormatter("localhost", 8080, true).format(record);
         System.out.println(formatted);
 
-        var expected = "12:34:56 INFO   Installed features: [amazon-s3, cdi, config-yaml, hibernate-validator, kotlin, kubernetes, logging-dev, micrometer, mongodb-client,\n"
+        var expected = "12:34:56 INFO  Installed features: [amazon-s3, cdi, config-yaml, hibernate-validator, kotlin, kubernetes, logging-dev, micrometer, mongodb-client,\n"
                 +
-                "                  mongodb-panache, narayana-jta, openfga-client, opentelemetry, opentelemetry-otlp-exporter, reactive-routes, rest-client-reactive,\n"
+                "                 mongodb-panache, narayana-jta, openfga-client, opentelemetry, opentelemetry-otlp-exporter, reactive-routes, rest-client-reactive,\n"
                 +
-                "                  rest-client-reactive-jackson, resteasy-reactive, resteasy-reactive-jackson, security, smallrye-context-propagation, smallrye-fault-tolerance,\n"
+                "                 rest-client-reactive-jackson, resteasy-reactive, resteasy-reactive-jackson, security, smallrye-context-propagation, smallrye-fault-tolerance,\n"
                 +
-                "                  smallrye-health, smallrye-jwt, smallrye-reactive-messaging, smallrye-reactive-messaging-rabbitmq, vault, vertx, zanzibar, zanzibar-open-fga]\n"
+                "                 smallrye-health, smallrye-jwt, smallrye-reactive-messaging, smallrye-reactive-messaging-rabbitmq, vault, vertx, zanzibar, zanzibar-open-fga]\n"
                 +
-                "                [io.quarkus] (Quarkus Main) <trace:51793732132590713,span:1497135987135289>\n\n";
+                "               [io.quarkus] (Quarkus Main) <trace:51793732132590713,span:1497135987135289>\n\n";
         assertThat(removeEscapes(formatted), equalTo(expected));
     }
 
@@ -122,15 +122,15 @@ public class LoggingDevTest {
         var formatted = new DevFormatter("localhost", 8080, true).format(record);
         System.out.println(formatted);
 
-        var expected = "12:34:56 INFO   Request failed with status code 400: Query validation error: 'String 'id,email,name' does not match pattern. Must be a comma separated list of\n"
+        var expected = "12:34:56 INFO  Request failed with status code 400: Query validation error: 'String 'id,email,name' does not match pattern. Must be a comma separated list of\n"
                 +
-                "                  the following values: phone_number,email,email_verified,picture,username,user_id,name,nickname,created_at,identities,app_metadata,\n"
+                "                 the following values: phone_number,email,email_verified,picture,username,user_id,name,nickname,created_at,identities,app_metadata,\n"
                 +
-                "                  user_metadata,last_ip,last_login,logins_count,updated_at,blocked,family_name,given_name' on property fields (Comma-separated list of fields\n"
+                "                 user_metadata,last_ip,last_login,logins_count,updated_at,blocked,family_name,given_name' on property fields (Comma-separated list of fields\n"
                 +
-                "                  to include or exclude (based on value provided for include_fields) in the result. Leave empty to retrieve all fields).\n"
+                "                 to include or exclude (based on value provided for include_fields) in the result. Leave empty to retrieve all fields).\n"
                 +
-                "                [io.quarkus] (Quarkus Main) <trace:51793732132590713,span:1497135987135289>\n\n";
+                "               [io.quarkus] (Quarkus Main) <trace:51793732132590713,span:1497135987135289>\n\n";
         assertThat(removeEscapes(formatted), equalTo(expected));
     }
 
@@ -154,15 +154,15 @@ public class LoggingDevTest {
         var formatted = new DevFormatter("localhost", 8080, true).format(record);
         System.out.println(formatted);
 
-        var expected = "12:34:56 INFO   Lorem ipsum dolor sit amet, consectetur adipiscing elit,\n" +
-                "                  sed do eiusmod tempor incididunt ut labore et dolore magna\n" +
-                "                  aliqua. Ut enim ad minim veniam, quis nostrud exercitation\n" +
-                "                  ullamco laboris nisi ut aliquip ex ea commodo consequat.\n" +
-                "                  Duis aute irure dolor in reprehenderit in voluptate velit\n" +
-                "                  esse cillum dolore eu fugiat nulla pariatur. Excepteur sint\n" +
-                "                  occaecat cupidatat non proident, sunt in culpa qui officia\n" +
-                "                  deserunt mollit anim id est laborum.\n" +
-                "                [io.quarkus] (Quarkus Main) <trace:51793732132590713,span:1497135987135289>\n\n";
+        var expected = "12:34:56 INFO  Lorem ipsum dolor sit amet, consectetur adipiscing elit,\n" +
+                "                 sed do eiusmod tempor incididunt ut labore et dolore magna\n" +
+                "                 aliqua. Ut enim ad minim veniam, quis nostrud exercitation\n" +
+                "                 ullamco laboris nisi ut aliquip ex ea commodo consequat.\n" +
+                "                 Duis aute irure dolor in reprehenderit in voluptate velit\n" +
+                "                 esse cillum dolore eu fugiat nulla pariatur. Excepteur sint\n" +
+                "                 occaecat cupidatat non proident, sunt in culpa qui officia\n" +
+                "                 deserunt mollit anim id est laborum.\n" +
+                "               [io.quarkus] (Quarkus Main) <trace:51793732132590713,span:1497135987135289>\n\n";
         assertThat(removeEscapes(formatted), equalTo(expected));
     }
 

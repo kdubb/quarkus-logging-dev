@@ -30,9 +30,9 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 public class DevFormatter extends ExtFormatter {
 
     private static final String EXCEPTION_PATH = "/q/" + ROUTE_PATH + "/";
-    private static final int LEVEL_PAD_LENGTH = 6;
+    private static final int LEVEL_PAD_LENGTH = 5;
     private static final int MAX_LOG_SECTION_LENGTH = 3;
-    private static final String INDENT = blankString(16);
+    private static final String INDENT = blankString(15);
 
     String httpHost;
     int httpPort;
@@ -88,27 +88,35 @@ public class DevFormatter extends ExtFormatter {
             statusMessage = "UNKNOWN";
         }
 
-        return formatHttpMessageLine(record.getInstant(), reqMatcher.group(1), statusCode, reqMatcher.group(2)) +
+        var statusLevel = statusCode >= 100 && statusCode < 400 ? INFO : ERROR;
+        var statusColor = levelColor(statusLevel);
+
+        return formatHttpMessageLine(record.getInstant(), statusColor, reqMatcher.group(1), reqMatcher.group(2),
+                reqMatcher.group(3)) +
                 '\n' +
-                formatHttpContextLine(reqMatcher.group(3), statusCode, statusMessage, logMatcher.group(3)) +
+                formatHttpContextLine(statusColor, statusCode, statusMessage, logMatcher.group(3)) +
                 '\n' +
                 formatContextLine(record) +
                 "\n\n";
     }
 
-    private String formatHttpMessageLine(Instant instant, String method, int statusCode, String message) {
+    private String formatHttpMessageLine(Instant instant, Color statusColor, String method, String message,
+            String httpVersion) {
 
         var timestamp = instant.atZone(ZoneId.systemDefault());
-        var methodLevel = statusCode >= 100 && statusCode < 400 ? INFO : ERROR;
 
         return colorize(TIMESTAMP_FORMATTER.format(timestamp), LO_TEXT_COLOR) +
                 ' ' +
-                colorize(padLevel(method), levelColor(methodLevel)) +
+                colorize(padLevel("HTTP"), LO_TEXT_COLOR) +
                 ' ' +
-                colorize(message, HI_TEXT_COLOR);
+                colorize(method, statusColor) +
+                ' ' +
+                colorize(message, HI_TEXT_COLOR) +
+                ' ' +
+                colorize(httpVersion, LO_TEXT_COLOR);
     }
 
-    private String formatHttpContextLine(String httpVersion, int statusCode, String statusMessage, String user) {
+    private String formatHttpContextLine(Color statusColor, int statusCode, String statusMessage, String user) {
 
         if (user.isBlank() || user.equals("-")) {
             user = "none";
@@ -116,11 +124,9 @@ public class DevFormatter extends ExtFormatter {
 
         return INDENT +
                 colorize("|", DELIM_COLOR) +
-                colorize(Integer.toString(statusCode), HTTP_CTX_PRIMARY_COLOR) +
+                colorize(Integer.toString(statusCode), statusColor) +
                 ' ' +
-                colorize(statusMessage, HTTP_CTX_PRIMARY_COLOR.darken(0.15f)) +
-                ' ' +
-                colorize(httpVersion, HTTP_CTX_PRIMARY_COLOR.darken(0.3f)) +
+                colorize(statusMessage, statusColor.darken(0.15f)) +
                 colorize("|", DELIM_COLOR) +
                 ' ' +
                 colorize("<", DELIM_COLOR) +
