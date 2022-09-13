@@ -29,10 +29,53 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 
 public class DevFormatter extends ExtFormatter {
 
-    private static final String EXCEPTION_PATH = "/q/" + ROUTE_PATH + "/";
+    private static final String HTTP_ACCESS_LOGGER_NAME = "io.quarkus.http.access-log";
+    private static final String HTTP_LOG_LEVEL = "HTTP";
+    private static final String HTTP_MISSING_FIELD = "-";
+    private static final String HTTP_RESPONSE_DELIM = "|";
+    private static final String HTTP_SECURITY_BEG_DELIM = "<";
+    private static final String HTTP_SECURITY_END_DELIM = ">";
+    private static final String HTTP_SECURITY_NO_USER = "none";
+    private static final String HTTP_UNKNOWN_STATUS = "Unknown";
+    private static final Pattern HTTP_LOG_PATTERN = compile(
+            "([^ ]+) ([^ ]+) ([^ ]+) (\\d{2}/\\w+/\\d{4}:\\d{2}:\\d{2}:\\d{2} [+\\-]?\\d+) \"([^\"]+)\" (\\d+) (\\d+)");
+    private static final Pattern HTTP_REQ_PATTERN = compile("(\\w+) ([^ ]+) (HTTP/.*)");
+
+    private static final String EXC_PATH = "/q/" + ROUTE_PATH + "/";
+    private static final String EXC_MESSAGE_BEG = "↪ ";
+    private static final String EXC_URL_FORMAT = "http://%s:%d" + EXC_PATH + "%s";
+    private static final String EXC_TRACE_LOC_BEG_DELIM = "(";
+    private static final String EXC_TRACE_LOC_END_DELIM = ")";
+    private static final String EXC_TRACE_LOC_SEP_DELIM = ":";
+
+    private static final String CTX_LOGGER_BEG_DELIM = "[";
+    private static final String CTX_LOGGER_END_DELIM = "]";
+    private static final String CTX_THREAD_BEG_DELIM = "(";
+    private static final String CTX_THREAD_END_DELIM = ")";
+    private static final String CTX_TELEMETRY_BEG_DELIM = "<";
+    private static final String CTX_TELEMETRY_TRACE_NAME = "trace";
+    private static final String CTX_TELEMETRY_SPAN_NAME = "span";
+    private static final String CTX_TELEMETRY_VALUE_DELIM = ":";
+    private static final String CTX_TELEMETRY_FIELD_DELIM = ",";
+    private static final String CTX_TELEMETRY_END_DELIM = ">";
+    private static final String CTX_TELEMETRY_NO_TRACE = "none";
+    private static final String CTX_TELEMETRY_NO_SPAN = "none";
+    private static final String MDC_TRACE_ID_NAME = "traceId";
+    private static final String MDC_SPAN_ID_NAME = "spanId";
+
     private static final int LEVEL_PAD_LENGTH = 5;
     private static final int MAX_LOG_SECTION_LENGTH = 3;
+
+    private static final String NO_LOG = "";
+    private static final String EMPTY_MESSAGE = "";
     private static final String INDENT = blankString(15);
+    private static final String MSG_EXTRA_INDENT = blankString(2);
+    private static final String NEWLINE = "\n";
+    private static final String SPACE = " ";
+    private static final String DOUBLE_NEWLINE = NEWLINE + NEWLINE;
+    private static final Pattern LOGGER_NAME_SPLIT_PATTERN = Pattern.compile("\\.");
+    private static final String LOGGER_NAME_SPLIT = ".";
+    private static final char CLASS_NAME_SPLIT = '.';
 
     String httpHost;
     int httpPort;
@@ -46,31 +89,27 @@ public class DevFormatter extends ExtFormatter {
 
     @Override
     public String format(ExtLogRecord record) {
-        if ("io.quarkus.http.access-log".equals(record.getLoggerName())) {
+        if (HTTP_ACCESS_LOGGER_NAME.equals(record.getLoggerName())) {
             return formatHttp(record);
         }
         return formatGeneral(record);
     }
 
-    private static final Pattern httpLogPattern = compile(
-            "([^ ]+) ([^ ]+) ([^ ]+) (\\d{2}/\\w+/\\d{4}:\\d{2}:\\d{2}:\\d{2} [+\\-]?\\d+) \"([^\"]+)\" (\\d+) (\\d+)");
-    private static final Pattern httpReqPattern = compile("(\\w+) ([^ ]+) (HTTP/.*)");
-
     public String formatHttp(ExtLogRecord record) {
 
-        var logMatcher = httpLogPattern.matcher(record.getMessage());
+        var logMatcher = HTTP_LOG_PATTERN.matcher(record.getMessage());
         if (!logMatcher.matches()) {
             return formatGeneral(record);
         }
 
-        var reqMatcher = httpReqPattern.matcher(logMatcher.group(5));
+        var reqMatcher = HTTP_REQ_PATTERN.matcher(logMatcher.group(5));
         if (!reqMatcher.matches()) {
             return formatGeneral(record);
         }
 
         // Filter out access logs for our requests...
-        if (reqMatcher.group(2).startsWith("/q/exceptions/")) {
-            return "";
+        if (reqMatcher.group(2).startsWith(EXC_PATH)) {
+            return NO_LOG;
         }
 
         int statusCode;
@@ -81,11 +120,11 @@ public class DevFormatter extends ExtFormatter {
             if (status != null) {
                 statusMessage = status.reasonPhrase();
             } else {
-                statusMessage = "UNKNOWN";
+                statusMessage = HTTP_UNKNOWN_STATUS;
             }
         } catch (Throwable ignored) {
             statusCode = 0;
-            statusMessage = "UNKNOWN";
+            statusMessage = HTTP_UNKNOWN_STATUS;
         }
 
         var statusLevel = statusCode >= 100 && statusCode < 400 ? INFO : ERROR;
@@ -93,11 +132,11 @@ public class DevFormatter extends ExtFormatter {
 
         return formatHttpMessageLine(record.getInstant(), statusColor, reqMatcher.group(1), reqMatcher.group(2),
                 reqMatcher.group(3)) +
-                '\n' +
+                NEWLINE +
                 formatHttpContextLine(statusColor, statusCode, statusMessage, logMatcher.group(3)) +
-                '\n' +
+                NEWLINE +
                 formatContextLine(record) +
-                "\n\n";
+                DOUBLE_NEWLINE;
     }
 
     private String formatHttpMessageLine(Instant instant, Color statusColor, String method, String message,
@@ -106,53 +145,53 @@ public class DevFormatter extends ExtFormatter {
         var timestamp = instant.atZone(ZoneId.systemDefault());
 
         return colorize(TIMESTAMP_FORMATTER.format(timestamp), LO_TEXT_COLOR) +
-                ' ' +
-                colorize(padLevel("HTTP"), LO_TEXT_COLOR) +
-                ' ' +
+                SPACE +
+                colorize(padLevel(HTTP_LOG_LEVEL), LO_TEXT_COLOR) +
+                SPACE +
                 colorize(method, statusColor) +
-                ' ' +
+                SPACE +
                 colorize(message, HI_TEXT_COLOR) +
-                ' ' +
+                SPACE +
                 colorize(httpVersion, LO_TEXT_COLOR);
     }
 
     private String formatHttpContextLine(Color statusColor, int statusCode, String statusMessage, String user) {
 
-        if (user.isBlank() || user.equals("-")) {
-            user = "none";
+        if (user.isBlank() || user.equals(HTTP_MISSING_FIELD)) {
+            user = HTTP_SECURITY_NO_USER;
         }
 
         return INDENT +
-                colorize("|", DELIM_COLOR) +
+                colorize(HTTP_RESPONSE_DELIM, DELIM_COLOR) +
                 colorize(Integer.toString(statusCode), statusColor) +
-                ' ' +
+                SPACE +
                 colorize(statusMessage, statusColor.darken(0.15f)) +
-                colorize("|", DELIM_COLOR) +
-                ' ' +
-                colorize("<", DELIM_COLOR) +
+                colorize(HTTP_RESPONSE_DELIM, DELIM_COLOR) +
+                SPACE +
+                colorize(HTTP_SECURITY_BEG_DELIM, DELIM_COLOR) +
                 colorize(user, HTTP_CTX_IMPORTANT_COLOR) +
-                colorize(">", DELIM_COLOR);
+                colorize(HTTP_SECURITY_END_DELIM, DELIM_COLOR);
     }
 
     public String formatGeneral(ExtLogRecord record) {
         var out = new StringBuilder();
 
         out.append(formatGeneralMessageLine(record))
-                .append('\n');
+                .append(NEWLINE);
 
         var context = formatContextLine(record);
         if (!context.isBlank()) {
             out.append(context)
-                    .append('\n');
+                    .append(NEWLINE);
         }
 
         var exception = formatGeneralExceptionLines(record);
         if (!exception.isBlank()) {
             out.append(exception)
-                    .append('\n');
+                    .append(NEWLINE);
         }
 
-        out.append('\n');
+        out.append(NEWLINE);
 
         return out.toString();
     }
@@ -175,7 +214,7 @@ public class DevFormatter extends ExtFormatter {
                     message = colorize(record.getMessage(), HI_TEXT_COLOR);
                     break;
                 default:
-                    message = "";
+                    message = EMPTY_MESSAGE;
                     break;
             }
         } else {
@@ -183,18 +222,18 @@ public class DevFormatter extends ExtFormatter {
         }
 
         var messageLine = colorize(TIMESTAMP_FORMATTER.format(timestamp), LO_TEXT_COLOR) +
-                ' ' +
+                SPACE +
                 colorize(level, levelColor(record.getLevel())) +
-                ' ' +
+                SPACE +
                 message;
 
-        return wrapMessage(messageLine, INDENT + "  ");
+        return wrapMessage(messageLine, INDENT + MSG_EXTRA_INDENT);
     }
 
     private String formatGeneralExceptionLines(ExtLogRecord record) {
         var thrown = record.getThrown();
         if (thrown == null) {
-            return "";
+            return EMPTY_MESSAGE;
         }
 
         var builder = new StringBuilder();
@@ -202,9 +241,9 @@ public class DevFormatter extends ExtFormatter {
         addGeneralException(thrown, 1, builder);
 
         var exceptionId = ExceptionCollector.add(thrown);
-        var exceptionLink = "http://" + httpHost + ":" + httpPort + EXCEPTION_PATH + exceptionId;
+        var exceptionLink = String.format(EXC_URL_FORMAT, httpHost, httpPort, exceptionId);
 
-        builder.append('\n')
+        builder.append(NEWLINE)
                 .append(INDENT)
                 .append(bold(colorize(exceptionLink, EXC_QUATERNARY_COLOR)));
 
@@ -215,38 +254,38 @@ public class DevFormatter extends ExtFormatter {
         var messageIndent = new StringBuilder(INDENT);
         var levelIndent = new StringBuilder(INDENT);
         for (int c = 0; c < level - 1; ++c) {
-            messageIndent.append("  ");
-            levelIndent.append("  ");
+            messageIndent.append(MSG_EXTRA_INDENT);
+            levelIndent.append(MSG_EXTRA_INDENT);
         }
-        messageIndent.append(colorize("↪ ", EXC_PRIMARY_COLOR));
-        levelIndent.append("  ");
+        messageIndent.append(colorize(EXC_MESSAGE_BEG, EXC_PRIMARY_COLOR));
+        levelIndent.append(MSG_EXTRA_INDENT);
 
         var colorMessage = colorize(x.getMessage(), EXC_MESSAGE_COLOR);
-        var message = wrapMessage(messageIndent + colorMessage, levelIndent + "  ");
+        var message = wrapMessage(messageIndent + colorMessage, levelIndent + MSG_EXTRA_INDENT);
 
         String exceptionCtxLine = colorize(x.getClass().getSimpleName(), EXC_PRIMARY_COLOR);
         if (x.getStackTrace() != null && x.getStackTrace().length > 0) {
             var stackTop = x.getStackTrace()[0];
             var className = stackTop.getClassName();
-            var simpleClassNameIdx = className.lastIndexOf('.');
+            var simpleClassNameIdx = className.lastIndexOf(CLASS_NAME_SPLIT);
             var simpleClassName = className.substring(simpleClassNameIdx == -1 ? 0 : simpleClassNameIdx + 1);
-            exceptionCtxLine += ' ' +
-                    colorize(simpleClassName + '.' + stackTop.getMethodName(), EXC_SECONDARY_COLOR) +
-                    colorize("(", DELIM_COLOR) +
+            exceptionCtxLine += SPACE +
+                    colorize(simpleClassName + CLASS_NAME_SPLIT + stackTop.getMethodName(), EXC_SECONDARY_COLOR) +
+                    colorize(EXC_TRACE_LOC_BEG_DELIM, DELIM_COLOR) +
                     colorize(stackTop.getFileName(), EXC_TERTIARY_COLOR) +
-                    colorize(":", DELIM_COLOR) +
+                    colorize(EXC_TRACE_LOC_SEP_DELIM, DELIM_COLOR) +
                     colorize(Integer.toString(stackTop.getLineNumber()), EXC_TERTIARY_COLOR) +
-                    colorize(")", DELIM_COLOR);
+                    colorize(EXC_TRACE_LOC_END_DELIM, DELIM_COLOR);
         }
 
         builder.append(message)
-                .append('\n')
+                .append(NEWLINE)
                 .append(levelIndent)
                 .append(exceptionCtxLine);
 
         Throwable cause = x.getCause();
         if (cause != null && cause != x) {
-            builder.append('\n');
+            builder.append(NEWLINE);
             addGeneralException(cause, level + 1, builder);
         }
     }
@@ -254,29 +293,29 @@ public class DevFormatter extends ExtFormatter {
     private String formatContextLine(ExtLogRecord record) {
 
         var builder = new StringBuilder(INDENT)
-                .append(colorize("[", DELIM_COLOR))
+                .append(colorize(CTX_LOGGER_BEG_DELIM, DELIM_COLOR))
                 .append(colorize(shortenLoggerName(record.getLoggerName()), CTX_TERTIARY_COLOR))
-                .append(colorize("]", DELIM_COLOR))
-                .append(' ')
-                .append(colorize("(", DELIM_COLOR))
+                .append(colorize(CTX_LOGGER_END_DELIM, DELIM_COLOR))
+                .append(SPACE)
+                .append(colorize(CTX_THREAD_BEG_DELIM, DELIM_COLOR))
                 .append(colorize(record.getThreadName(), CTX_SECONDARY_COLOR))
-                .append(colorize(")", DELIM_COLOR));
+                .append(colorize(CTX_THREAD_END_DELIM, DELIM_COLOR));
 
         if (showTraceContext) {
-            var traceId = record.getMdc("traceId");
-            traceId = traceId != null ? traceId : "none";
+            var traceId = record.getMdc(MDC_TRACE_ID_NAME);
+            traceId = traceId != null ? traceId : CTX_TELEMETRY_NO_TRACE;
 
-            var spanId = record.getMdc("spanId");
-            spanId = spanId != null ? spanId : "none";
+            var spanId = record.getMdc(MDC_SPAN_ID_NAME);
+            spanId = spanId != null ? spanId : CTX_TELEMETRY_NO_SPAN;
 
-            builder.append(' ')
-                    .append(colorize("<", DELIM_COLOR))
-                    .append(colorize("trace:", LO_TEXT_COLOR))
+            builder.append(SPACE)
+                    .append(colorize(CTX_TELEMETRY_BEG_DELIM, DELIM_COLOR))
+                    .append(colorize(CTX_TELEMETRY_TRACE_NAME + CTX_TELEMETRY_VALUE_DELIM, LO_TEXT_COLOR))
                     .append(colorize(traceId, CTX_PRIMARY_COLOR))
-                    .append(colorize(",", DELIM_COLOR))
-                    .append(colorize("span:", LO_TEXT_COLOR))
+                    .append(colorize(CTX_TELEMETRY_FIELD_DELIM, DELIM_COLOR))
+                    .append(colorize(CTX_TELEMETRY_SPAN_NAME + CTX_TELEMETRY_VALUE_DELIM, LO_TEXT_COLOR))
                     .append(colorize(spanId, CTX_PRIMARY_COLOR))
-                    .append(colorize(">", DELIM_COLOR));
+                    .append(colorize(CTX_TELEMETRY_END_DELIM, DELIM_COLOR));
         }
 
         return builder.toString();
@@ -323,7 +362,7 @@ public class DevFormatter extends ExtFormatter {
                 }
 
                 wrappedLines
-                        .append('\n')
+                        .append(NEWLINE)
                         .append(indent);
                 wordStrOffset++;
                 lineOffset.set(indent.length());
@@ -340,7 +379,7 @@ public class DevFormatter extends ExtFormatter {
                     wordStrOffset++;
                 }
 
-                wrappedLines.append('\n')
+                wrappedLines.append(NEWLINE)
                         .append(indent)
                         .append(str, wordStrOffset, strOffset);
 
@@ -410,15 +449,15 @@ public class DevFormatter extends ExtFormatter {
     }
 
     private static String shortenLoggerName(String str) {
-        var sections = str.split("\\.");
+        var sections = LOGGER_NAME_SPLIT_PATTERN.split(str);
         var last = sections[sections.length - 1];
         if (sections.length == 1) {
             return last;
         }
         var prefix = stream(sections, 0, sections.length - 1)
                 .map(s -> s.length() > MAX_LOG_SECTION_LENGTH ? s.substring(0, MAX_LOG_SECTION_LENGTH) : s)
-                .collect(joining("."));
-        return prefix + "." + last;
+                .collect(joining(LOGGER_NAME_SPLIT));
+        return prefix + LOGGER_NAME_SPLIT + last;
     }
 
     private static final ColorPrintf COLOR_PRINTF = new ColorPrintf(
