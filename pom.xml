@@ -5,7 +5,7 @@
   <parent>
     <groupId>io.quarkiverse</groupId>
     <artifactId>quarkiverse-parent</artifactId>
-    <version>10</version>
+    <version>11</version>
   </parent>
   <groupId>io.quarkiverse.logging</groupId>
   <artifactId>quarkus-logging-dev-parent</artifactId>
